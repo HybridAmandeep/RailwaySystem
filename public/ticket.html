@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Ticket - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+
+            .header,
+            .btn-print,
+            .footer {
+                display: none;
+            }
+
+            .ticket {
+                box-shadow: none;
+            }
+
+            body {
+                background: white;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/history.html">My Bookings</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Ticket Display -->
+    <section class="ticket-container">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button class="btn-search btn-print" onclick="window.print()" style="display: inline-flex;">
+                <i class="fas fa-print"></i> Print Ticket
+            </button>
+            <button class="btn-search" onclick="window.location.href='/'"
+                style="display: inline-flex; background: var(--secondary-color); margin-left: 10px;">
+                <i class="fas fa-home"></i> Home
+            </button>
+        </div>
+
+        <div class="ticket" id="ticketContainer">
+            <div class="loading" id="loadingState">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </section>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const pnr = params.get('pnr');
+
+        async function loadTicket() {
+            try {
+                const response = await fetch(`/api/bookings/pnr/${pnr}`, { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok && data.booking) {
+                    renderTicket(data);
+                } else {
+                    document.getElementById('ticketContainer').innerHTML = `
+                        <div style="padding: 50px; text-align: center;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: var(--warning); margin-bottom: 20px;"></i>
+                            <h3>Ticket Not Found</h3>
+                            <p style="color: var(--text-muted);">Invalid PNR number or booking not found.</p>
+                            <a href="/" class="btn-search" style="display: inline-block; margin-top: 20px;">
+                                <i class="fas fa-search"></i> Search Trains
+                            </a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('ticketContainer').innerHTML = `
+                    <div style="padding: 50px; text-align: center;">
+                        <div class="alert alert-error">Failed to load ticket. Please try again.</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTicket(data) {
+            const { booking, passengers, waitlist } = data;
+            const statusClass = booking.booking_status.toLowerCase();
+
+            document.getElementById('ticketContainer').innerHTML = `
+                <div class="ticket-header">
+                    <h2>🚂 Indian Railways E-Ticket</h2>
+                    <div class="pnr">${booking.pnr}</div>
+                </div>
+                
+                <div class="ticket-body">
+                    <div class="ticket-status">
+                        <span class="status-badge ${statusClass}">
+                            ${booking.booking_status}
+                            ${waitlist ? ` (WL/${waitlist.waitlist_number})` : ''}
+                        </span>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h3 style="color: var(--secondary-color);">${booking.train_name}</h3>
+                        <span style="color: var(--primary-color); font-weight: 600;">(${booking.train_number})</span>
+                        <span style="margin-left: 15px; color: var(--text-muted);">${booking.coach_type}</span>
+                    </div>
+                    
+                    <div class="ticket-journey">
+                        <div class="ticket-station">
+                            <div class="time">--:--</div>
+                            <div class="station">${booking.from_code}</div>
+                            <div class="date">${booking.from_station}</div>
+                        </div>
+                        <div class="ticket-arrow">
+                            <i class="fas fa-long-arrow-alt-right"></i>
+                        </div>
+                        <div class="ticket-station">
+                            <div class="time">--:--</div>
+                            <div class="station">${booking.to_code}</div>
+                            <div class="date">${booking.to_station}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 10px;">
+                        <span style="font-size: 1.2rem;">📅 Journey Date: </span>
+                        <strong style="color: var(--secondary-color); font-size: 1.2rem;">
+                            ${formatDate(booking.journey_date)}
+                        </strong>
+                    </div>
+                    
+                    <div class="passenger-list">
+                        <h4><i class="fas fa-users"></i> Passenger Details</h4>
+                        <div style="overflow-x: auto;">
+                            <div class="passenger-item" style="background: var(--secondary-color); color: white; font-weight: 600;">
+                                <span style="text-align: left;">Name</span>
+                                <span>Age</span>
+                                <span>Gender</span>
+                                <span>Seat/Berth</span>
+                                <span>Status</span>
+                            </div>
+                            ${passengers.map(p => `
+                                <div class="passenger-item">
+                                    <span style="text-align: left;">${p.passenger_name}</span>
+                                    <span>${p.age}</span>
+                                    <span>${p.gender}</span>
+                                    <span>${p.seat_number || 'TBD'} ${p.coach_number || ''}</span>
+                                    <span style="color: ${p.passenger_status === 'CONFIRMED' ? 'var(--success)' : 'var(--warning)'};">
+                                        ${p.passenger_status}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ticket-footer">
+                    <div>
+                        <span style="color: var(--text-muted);">Booked on:</span><br>
+                        <strong>${formatDateTime(booking.booked_at)}</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted);">Total Amount:</span><br>
+                        <span class="amount">₹${booking.total_fare}</span>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px; background: #f8f9fa; margin-top: 20px; border-radius: 0 0 20px 20px;">
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                        <strong>Important:</strong>
+                    </p>
+                    <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 20px;">
+                        <li>Carry a valid photo ID during the journey</li>
+                        <li>Report at the station at least 30 minutes before departure</li>
+                        <li>This is a computer-generated ticket and does not require a signature</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        if (!pnr) {
+            window.location.href = '/pnr-status.html';
+        } else {
+            loadTicket();
+        }
+    </script>
+</body>
+
+</html>

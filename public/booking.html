@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Ticket - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/pnr-status.html">PNR Status</a></li>
+                <li><a href="/history.html">My Bookings</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Booking Form -->
+    <section class="booking-container">
+        <div class="booking-card">
+            <div class="booking-header">
+                <h2><i class="fas fa-ticket-alt"></i> Passenger Details</h2>
+                <p id="journeyInfo">Loading journey details...</p>
+            </div>
+
+            <div class="booking-body">
+                <div id="alertContainer"></div>
+
+                <!-- Journey Summary -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <div>
+                            <strong id="trainName">Train Name</strong><br>
+                            <span id="trainNumber" style="color: var(--primary-color);">Train Number</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <span id="fromStation" style="font-weight: 600;">FROM</span>
+                            <span style="margin: 0 15px;">→</span>
+                            <span id="toStation" style="font-weight: 600;">TO</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span id="journeyDate" style="font-weight: 600;">Date</span><br>
+                            <span id="coachType" style="color: var(--accent-color);">Class</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Passengers -->
+                <div class="passenger-section">
+                    <h3 style="margin-bottom: 15px; color: var(--secondary-color);">
+                        <i class="fas fa-users"></i> Passenger Information
+                    </h3>
+                    <div id="passengersContainer"></div>
+                    <button type="button" class="btn-add-passenger" id="addPassengerBtn">
+                        <i class="fas fa-plus"></i> Add Passenger
+                    </button>
+                </div>
+
+                <!-- Fare Summary -->
+                <div class="fare-summary">
+                    <h4 style="margin-bottom: 15px; color: var(--secondary-color);">Fare Summary</h4>
+                    <div class="fare-row">
+                        <span>Base Fare (<span id="passengerCount">1</span> × ₹<span id="baseFare">0</span>)</span>
+                        <span>₹<span id="subtotal">0</span></span>
+                    </div>
+                    <div class="fare-row">
+                        <span>Reservation Charges</span>
+                        <span>₹<span id="reservationCharges">40</span></span>
+                    </div>
+                    <div class="fare-row">
+                        <span>GST (5%)</span>
+                        <span>₹<span id="gst">0</span></span>
+                    </div>
+                    <div class="fare-row total">
+                        <span>Total Amount</span>
+                        <span>₹<span id="totalFare">0</span></span>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-proceed" id="proceedBtn">
+                    <i class="fas fa-arrow-right"></i> Proceed to Payment
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Get booking parameters
+        const params = new URLSearchParams(window.location.search);
+        const trainId = params.get('train');
+        const coachType = params.get('class');
+        const from = params.get('from');
+        const to = params.get('to');
+        const date = params.get('date');
+        const fare = parseInt(params.get('fare')) || 1000;
+
+        let nextPassengerId = 1;
+        const maxPassengers = 6;
+
+        // Check authentication
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!user) {
+            window.location.href = `/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+        }
+
+        // Initialize page
+        async function initPage() {
+            // Set journey info
+            document.getElementById('fromStation').textContent = from;
+            document.getElementById('toStation').textContent = to;
+            document.getElementById('journeyDate').textContent = formatDate(date);
+            document.getElementById('coachType').textContent = coachType;
+            document.getElementById('baseFare').textContent = fare;
+
+            // Get train details
+            try {
+                const response = await fetch(`/api/trains/${trainId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.train) {
+                    document.getElementById('trainName').textContent = data.train.train_name;
+                    document.getElementById('trainNumber').textContent = data.train.train_number;
+                    document.getElementById('journeyInfo').innerHTML =
+                        `${data.train.train_name} (${data.train.train_number}) | ${from} → ${to}`;
+                }
+            } catch (e) {
+                document.getElementById('trainName').textContent = 'Train';
+                document.getElementById('trainNumber').textContent = trainId;
+            }
+
+            // Add first passenger
+            addPassenger();
+            updateFare();
+        }
+
+        function addPassenger() {
+            const currentCount = document.querySelectorAll('.passenger-card').length;
+            if (currentCount >= maxPassengers) {
+                showAlert('Maximum 6 passengers allowed per booking', 'warning');
+                return;
+            }
+
+            const id = nextPassengerId++;
+            const displayNum = currentCount + 1;
+            const container = document.getElementById('passengersContainer');
+            const passengerDiv = document.createElement('div');
+            passengerDiv.className = 'passenger-card';
+            passengerDiv.dataset.passengerId = id;
+            passengerDiv.innerHTML = `
+                <div class="passenger-header">
+                    <h4>Passenger ${displayNum}</h4>
+                    ${currentCount > 0 ? `<button type="button" class="btn-remove" onclick="removePassenger(this)">Remove</button>` : ''}
+                </div>
+                <div class="passenger-fields">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" class="p-name" placeholder="Full name as per ID" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Age</label>
+                        <input type="number" class="p-age" min="1" max="120" placeholder="Age" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Gender</label>
+                        <select class="p-gender" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Berth Preference</label>
+                        <select class="p-berth">
+                            <option value="NO PREFERENCE">No Preference</option>
+                            <option value="LOWER">Lower Berth</option>
+                            <option value="MIDDLE">Middle Berth</option>
+                            <option value="UPPER">Upper Berth</option>
+                            <option value="SIDE LOWER">Side Lower</option>
+                            <option value="SIDE UPPER">Side Upper</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            container.appendChild(passengerDiv);
+            updateFare();
+            renumberPassengers();
+        }
+
+        function removePassenger(btn) {
+            const card = btn.closest('.passenger-card');
+            if (card) {
+                card.remove();
+                updateFare();
+                renumberPassengers();
+            }
+        }
+
+        function renumberPassengers() {
+            document.querySelectorAll('.passenger-card').forEach((card, index) => {
+                card.querySelector('.passenger-header h4').textContent = `Passenger ${index + 1}`;
+                // Show remove button only on passengers after the first
+                const removeBtn = card.querySelector('.btn-remove');
+                if (index === 0 && removeBtn) removeBtn.style.display = 'none';
+                if (index > 0 && !removeBtn) {
+                    const header = card.querySelector('.passenger-header');
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn-remove';
+                    btn.textContent = 'Remove';
+                    btn.onclick = function () { removePassenger(this); };
+                    header.appendChild(btn);
+                }
+            });
+        }
+
+        function updateFare() {
+            const count = document.querySelectorAll('.passenger-card').length;
+            const subtotal = fare * count;
+            const reservation = 40 * count;
+            const gst = Math.round((subtotal + reservation) * 0.05);
+            const total = subtotal + reservation + gst;
+
+            document.getElementById('passengerCount').textContent = count;
+            document.getElementById('subtotal').textContent = subtotal;
+            document.getElementById('reservationCharges').textContent = reservation;
+            document.getElementById('gst').textContent = gst;
+            document.getElementById('totalFare').textContent = total;
+        }
+
+        function getPassengers() {
+            const passengers = [];
+            document.querySelectorAll('.passenger-card').forEach(card => {
+                const name = card.querySelector('.p-name')?.value;
+                const age = card.querySelector('.p-age')?.value;
+                const gender = card.querySelector('.p-gender')?.value;
+                const berth = card.querySelector('.p-berth')?.value || 'NO PREFERENCE';
+
+                if (name && age && gender) {
+                    passengers.push({ name, age: parseInt(age), gender, berth_preference: berth });
+                }
+            });
+            return passengers;
+        }
+
+        // Add passenger button
+        document.getElementById('addPassengerBtn').addEventListener('click', addPassenger);
+
+        // Proceed to payment
+        document.getElementById('proceedBtn').addEventListener('click', async () => {
+            const passengers = getPassengers();
+
+            if (passengers.length === 0) {
+                showAlert('Please fill in passenger details', 'error');
+                return;
+            }
+
+            // Validate all passengers have required fields
+            const cards = document.querySelectorAll('.passenger-card');
+            for (const card of cards) {
+                const inputs = card.querySelectorAll('input[required], select[required]');
+                for (const input of inputs) {
+                    if (!input.value) {
+                        showAlert('Please fill in all required fields', 'error');
+                        input.focus();
+                        return;
+                    }
+                }
+            }
+
+            try {
+                document.getElementById('proceedBtn').disabled = true;
+                document.getElementById('proceedBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+                const response = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        train_id: trainId,
+                        journey_date: date,
+                        from_station: from,
+                        to_station: to,
+                        coach_type: coachType,
+                        passengers
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Redirect to payment page
+                    window.location.href = `/payment.html?pnr=${data.booking.pnr}&amount=${data.booking.total_fare}`;
+                } else {
+                    showAlert(data.error || 'Booking failed', 'error');
+                    document.getElementById('proceedBtn').disabled = false;
+                    document.getElementById('proceedBtn').innerHTML = '<i class="fas fa-arrow-right"></i> Proceed to Payment';
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.', 'error');
+                document.getElementById('proceedBtn').disabled = false;
+                document.getElementById('proceedBtn').innerHTML = '<i class="fas fa-arrow-right"></i> Proceed to Payment';
+            }
+        });
+
+        function showAlert(message, type) {
+            document.getElementById('alertContainer').innerHTML =
+                `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        // Initialize
+        if (!trainId || !from || !to || !date) {
+            window.location.href = '/';
+        } else {
+            initPage();
+        }
+    </script>
+</body>
+
+</html>

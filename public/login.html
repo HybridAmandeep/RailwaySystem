@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/pnr-status.html">PNR Status</a></li>
+                <li><a href="/register.html" class="btn-login">Register</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Login Form -->
+    <section class="auth-container">
+        <div class="auth-box">
+            <h2><i class="fas fa-user-circle" style="color: var(--primary-color);"></i> Welcome Back</h2>
+            <p class="subtitle">Login to access your bookings and more</p>
+
+            <div id="alertContainer"></div>
+
+            <form class="auth-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username or Email</label>
+                    <input type="text" id="username" placeholder="Enter username or email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter password" required>
+                </div>
+
+                <button type="submit" class="btn-auth">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="/register.html">Register here</a></p>
+            </div>
+
+            <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;"><strong>Demo
+                        Credentials:</strong></p>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Username: <code>demo</code></p>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Password: <code>password123</code></p>
+            </div>
+        </div>
+    </section>
+
+    <script src="js/utils.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Login successful! Redirecting...', 'success');
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    setTimeout(() => {
+                        const redirect = new URLSearchParams(window.location.search).get('redirect');
+                        window.location.href = redirect || '/';
+                    }, 1000);
+                } else {
+                    showAlert(data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.', 'error');
+            }
+        });
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+    </script>
+</body>
+
+</html>

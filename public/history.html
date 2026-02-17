@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking History - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/pnr-status.html">PNR Status</a></li>
+                <li><a href="#" id="logoutBtn">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Booking History -->
+    <section class="history-container">
+        <h2 style="color: white; margin-bottom: 30px; text-align: center;">
+            <i class="fas fa-history"></i> My Bookings
+        </h2>
+
+        <div id="alertContainer"></div>
+        <div id="bookingsList">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cancel Modal -->
+    <div id="cancelModal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 15px; max-width: 400px; text-align: center;">
+            <i class="fas fa-exclamation-triangle"
+                style="font-size: 3rem; color: var(--warning); margin-bottom: 20px;"></i>
+            <h3>Cancel Booking?</h3>
+            <p style="color: var(--text-muted); margin: 15px 0;">
+                Are you sure you want to cancel this booking?<br>
+                <strong>PNR: <span id="cancelPnr"></span></strong>
+            </p>
+            <p style="color: var(--danger); font-size: 0.9rem;">
+                Cancellation charges may apply (25%)
+            </p>
+            <div style="margin-top: 20px; display: flex; gap: 15px; justify-content: center;">
+                <button onclick="closeModal()"
+                    style="padding: 12px 30px; border: 2px solid #ccc; background: white; border-radius: 8px; cursor: pointer;">
+                    No, Keep It
+                </button>
+                <button onclick="confirmCancel()"
+                    style="padding: 12px 30px; background: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                    Yes, Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        // Check authentication
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!user) {
+            window.location.href = '/login.html?redirect=/history.html';
+        }
+
+        let cancelPnr = null;
+
+        async function loadBookings() {
+            try {
+                const response = await fetch('/api/bookings', { credentials: 'include' });
+
+                if (response.status === 401) {
+                    window.location.href = '/login.html?redirect=/history.html';
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.bookings && data.bookings.length > 0) {
+                    renderBookings(data.bookings);
+                } else {
+                    document.getElementById('bookingsList').innerHTML = `
+                        <div style="text-align: center; padding: 50px; background: white; border-radius: 15px;">
+                            <i class="fas fa-ticket-alt" style="font-size: 4rem; color: #ccc; margin-bottom: 20px;"></i>
+                            <h3 style="color: var(--text-dark);">No Bookings Found</h3>
+                            <p style="color: var(--text-muted);">You haven't made any bookings yet.</p>
+                            <a href="/" class="btn-search" style="margin-top: 20px; display: inline-block;">
+                                <i class="fas fa-train"></i> Book Now
+                            </a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('bookingsList').innerHTML = `
+                    <div class="alert alert-error">Failed to load bookings. Please try again.</div>
+                `;
+            }
+        }
+
+        function renderBookings(bookings) {
+            const html = bookings.map(booking => {
+                const statusClass = booking.booking_status.toLowerCase();
+                const isPast = new Date(booking.journey_date) < new Date();
+                const canCancel = !isPast && booking.booking_status !== 'CANCELLED';
+
+                return `
+                    <div class="history-card fade-in">
+                        <div class="history-header">
+                            <div>
+                                <span style="color: var(--primary-color); font-weight: 700; font-size: 1.1rem;">
+                                    PNR: ${booking.pnr}
+                                </span>
+                                <span style="margin-left: 15px; color: var(--text-muted);">
+                                    Booked: ${formatDateTime(booking.booked_at)}
+                                </span>
+                            </div>
+                            <span class="status-badge ${statusClass}" style="font-size: 0.85rem; padding: 5px 15px;">
+                                ${booking.booking_status}
+                            </span>
+                        </div>
+                        <div class="history-body">
+                            <div>
+                                <h4 style="color: var(--secondary-color);">${booking.train_name}</h4>
+                                <span style="color: var(--primary-color);">(${booking.train_number})</span>
+                                <div style="margin-top: 10px;">
+                                    <strong>${booking.from_code}</strong>
+                                    <span style="margin: 0 10px;">→</span>
+                                    <strong>${booking.to_code}</strong>
+                                </div>
+                                <div style="color: var(--text-muted); margin-top: 5px;">
+                                    ${booking.from_station} → ${booking.to_station}
+                                </div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.2rem; font-weight: 600; color: var(--secondary-color);">
+                                    ${formatDate(booking.journey_date)}
+                                </div>
+                                <div style="color: var(--text-muted);">
+                                    ${booking.coach_type} • ${booking.passenger_count} Passenger(s)
+                                </div>
+                                <div style="color: var(--accent-color); font-weight: 700; margin-top: 5px;">
+                                    ₹${booking.total_fare}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <button class="btn-view" onclick="viewTicket('${booking.pnr}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                ${canCancel ? `
+                                    <button class="btn-cancel" onclick="showCancelModal('${booking.pnr}')" style="margin-left: 10px;">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('bookingsList').innerHTML = html;
+        }
+
+        function viewTicket(pnr) {
+            window.location.href = `/ticket.html?pnr=${pnr}`;
+        }
+
+        function showCancelModal(pnr) {
+            cancelPnr = pnr;
+            document.getElementById('cancelPnr').textContent = pnr;
+            document.getElementById('cancelModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('cancelModal').style.display = 'none';
+            cancelPnr = null;
+        }
+
+        async function confirmCancel() {
+            if (!cancelPnr) return;
+
+            try {
+                const response = await fetch(`/api/bookings/${cancelPnr}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    closeModal();
+                    showAlert(`Booking cancelled. Refund of ₹${data.refund_amount} will be processed.`, 'success');
+                    loadBookings();
+                } else {
+                    showAlert(data.error || 'Cancellation failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Error cancelling booking. Please try again.', 'error');
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showAlert(message, type) {
+            document.getElementById('alertContainer').innerHTML =
+                `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                document.getElementById('alertContainer').innerHTML = '';
+            }, 5000);
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        });
+
+        // Load bookings
+        loadBookings();
+    </script>
+</body>
+
+</html>

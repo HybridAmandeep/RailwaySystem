@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train Results - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="/">Home</a></li>
+                <li><a href="/pnr-status.html">PNR Status</a></li>
+                <li><a href="/history.html" id="historyLink" style="display: none;">My Bookings</a></li>
+                <li><a href="/login.html" class="btn-login" id="loginBtn">Login</a></li>
+                <li><a href="#" id="logoutBtn" style="display: none;">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Search Summary -->
+    <section style="padding: 30px; text-align: center;">
+        <div
+            style="background: rgba(255,255,255,0.1); display: inline-block; padding: 15px 30px; border-radius: 10px; backdrop-filter: blur(10px);">
+            <span style="color: white; font-size: 1.2rem;" id="searchSummary">Loading...</span>
+            <a href="/" style="color: var(--primary-color); margin-left: 20px; font-weight: 600;">
+                <i class="fas fa-edit"></i> Modify Search
+            </a>
+        </div>
+    </section>
+
+    <!-- Train Results -->
+    <section class="trains-container">
+        <div id="trainsList">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-bottom">
+            <p>© 2026 IRCTC Clone - DBMS Mini Project. For Educational Purposes Only.</p>
+        </div>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Get search parameters from URL
+        const params = new URLSearchParams(window.location.search);
+        const from = params.get('from');
+        const to = params.get('to');
+        const date = params.get('date');
+        const travelClass = params.get('class');
+
+        // Update search summary
+        document.getElementById('searchSummary').innerHTML = `
+            <strong>${from}</strong> → <strong>${to}</strong> | 
+            <i class="fas fa-calendar"></i> ${formatDate(date)}
+            ${travelClass ? ` | Class: ${travelClass}` : ''}
+        `;
+
+        // Fetch trains
+        async function loadTrains() {
+            try {
+                const response = await fetch(`/api/trains/search?from=${from}&to=${to}&date=${date}`, { credentials: 'include' });
+                const data = await response.json();
+
+                if (data.trains && data.trains.length > 0) {
+                    renderTrains(data.trains);
+                } else {
+                    document.getElementById('trainsList').innerHTML = `
+                        <div style="text-align: center; padding: 50px; background: white; border-radius: 15px;">
+                            <i class="fas fa-train" style="font-size: 4rem; color: #ccc; margin-bottom: 20px;"></i>
+                            <h3 style="color: var(--text-dark);">No Trains Found</h3>
+                            <p style="color: var(--text-muted);">No trains available for the selected route and date.</p>
+                            <a href="/" class="btn-search" style="margin-top: 20px; display: inline-block;">
+                                <i class="fas fa-search"></i> Search Again
+                            </a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('trainsList').innerHTML = `
+                    <div class="alert alert-error">Failed to load trains. Please try again.</div>
+                `;
+            }
+        }
+
+        function renderTrains(trains) {
+            const html = trains.map(train => `
+                <div class="train-card fade-in">
+                    <div class="train-header">
+                        <div class="train-info">
+                            <h3>${train.train_name}</h3>
+                            <span class="train-number">${train.train_number}</span>
+                            <span class="train-type">${train.train_type}</span>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.9rem;">Runs: ${formatRunningDays(train.running_days)}</span>
+                        </div>
+                    </div>
+                    <div class="train-body">
+                        <div class="station-info">
+                            <div class="station-time">${train.departure_time || '--:--'}</div>
+                            <div class="station-name">
+                                <span class="station-code">${train.from_code}</span>
+                                <span>${train.from_station}</span>
+                            </div>
+                        </div>
+                        <div class="journey-line">
+                            <span class="journey-duration">
+                                ${train.distance_km ? train.distance_km + ' km' : '--'}
+                            </span>
+                        </div>
+                        <div class="station-info">
+                            <div class="station-time">${train.arrival_time || '--:--'}</div>
+                            <div class="station-name">
+                                <span class="station-code">${train.to_code}</span>
+                                <span>${train.to_station}</span>
+                            </div>
+                        </div>
+                        <div class="class-availability">
+                            ${renderClasses(train)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('trainsList').innerHTML = html;
+        }
+
+        function renderClasses(train) {
+            if (!train.classes || train.classes.length === 0) {
+                return '<span style="color: var(--text-muted);">No class info</span>';
+            }
+
+            return train.classes.map(cls => {
+                const status = cls.available_seats > 0 ? 'available' : 'waitlist';
+                const seatsText = cls.available_seats > 0
+                    ? `AVAILABLE ${cls.available_seats}`
+                    : 'WAITLIST';
+
+                return `
+                    <div class="class-chip ${status}" onclick="selectClass('${train.train_id}', '${cls.coach_type}', ${cls.base_fare || 1000})">
+                        <span class="class-name">${cls.coach_type}</span>
+                        <span class="class-seats">${seatsText}</span>
+                        <span class="class-fare">₹${cls.base_fare || '--'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectClass(trainId, coachType, fare) {
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            if (!user) {
+                if (confirm('Please login to book tickets. Go to login page?')) {
+                    window.location.href = `/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                }
+                return;
+            }
+
+            // Redirect to booking page
+            window.location.href = `/booking.html?train=${trainId}&class=${coachType}&from=${from}&to=${to}&date=${date}&fare=${fare}`;
+        }
+
+        function formatRunningDays(days) {
+            if (!days) return 'All Days';
+            const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            return days.split('').map((d, i) =>
+                d !== '-' ? `<span style="color: var(--primary-color);">${dayNames[i]}</span>` : dayNames[i]
+            ).join(' ');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        // Load trains on page load
+        if (from && to) {
+            loadTrains();
+        } else {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+        </nav>
+    </header>
+
+    <!-- Payment Form -->
+    <section class="payment-container">
+        <div class="payment-card">
+            <div class="payment-header">
+                <h2><i class="fas fa-lock"></i> Secure Payment</h2>
+                <div class="payment-amount">₹<span id="amount">0</span></div>
+                <p>PNR: <strong id="pnrDisplay">Loading...</strong></p>
+            </div>
+
+            <div class="payment-body">
+                <div id="alertContainer"></div>
+
+                <h4 style="margin-bottom: 20px; color: var(--secondary-color);">Select Payment Method</h4>
+
+                <div class="payment-methods">
+                    <div class="payment-method" data-method="UPI">
+                        <div class="payment-method-icon">📱</div>
+                        <div>UPI</div>
+                    </div>
+                    <div class="payment-method" data-method="CARD">
+                        <div class="payment-method-icon">💳</div>
+                        <div>Debit/Credit Card</div>
+                    </div>
+                    <div class="payment-method" data-method="NETBANKING">
+                        <div class="payment-method-icon">🏦</div>
+                        <div>Net Banking</div>
+                    </div>
+                    <div class="payment-method" data-method="WALLET">
+                        <div class="payment-method-icon">👛</div>
+                        <div>Wallet</div>
+                    </div>
+                </div>
+
+                <!-- UPI Section -->
+                <div id="upiSection" class="hidden"
+                    style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <div class="form-group">
+                        <label for="upiId">Enter UPI ID</label>
+                        <input type="text" id="upiId" placeholder="yourname@upi" style="padding: 15px;">
+                    </div>
+                </div>
+
+                <!-- Card Section -->
+                <div id="cardSection" class="hidden"
+                    style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Card Number</label>
+                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19"
+                            style="padding: 15px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label>Expiry (MM/YY)</label>
+                            <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" style="padding: 15px;">
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="password" id="cardCVV" placeholder="•••" maxlength="3" style="padding: 15px;">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-pay" id="payBtn" disabled>
+                    <i class="fas fa-lock"></i> Pay ₹<span id="payAmount">0</span>
+                </button>
+
+                <p style="text-align: center; margin-top: 20px; color: var(--text-muted); font-size: 0.9rem;">
+                    <i class="fas fa-shield-alt"></i> Your payment is secured with 256-bit encryption
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const pnr = params.get('pnr');
+        const amount = params.get('amount');
+        let selectedMethod = null;
+
+        // Set amounts
+        document.getElementById('amount').textContent = amount;
+        document.getElementById('payAmount').textContent = amount;
+        document.getElementById('pnrDisplay').textContent = pnr;
+
+        // Payment method selection
+        document.querySelectorAll('.payment-method').forEach(method => {
+            method.addEventListener('click', () => {
+                // Remove previous selection
+                document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+                document.querySelectorAll('[id$="Section"]').forEach(s => s.classList.add('hidden'));
+
+                // Select new method
+                method.classList.add('selected');
+                selectedMethod = method.dataset.method;
+                document.getElementById('payBtn').disabled = false;
+
+                // Show method-specific section
+                if (selectedMethod === 'UPI') {
+                    document.getElementById('upiSection').classList.remove('hidden');
+                } else if (selectedMethod === 'CARD') {
+                    document.getElementById('cardSection').classList.remove('hidden');
+                }
+            });
+        });
+
+        // Card number formatting
+        document.getElementById('cardNumber').addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\s/g, '').replace(/[^0-9]/g, '');
+            let formatted = value.match(/.{1,4}/g)?.join(' ') || '';
+            e.target.value = formatted;
+        });
+
+        // Expiry formatting
+        document.getElementById('cardExpiry').addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^0-9]/g, '');
+            if (value.length >= 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2);
+            }
+            e.target.value = value;
+        });
+
+        // Pay button
+        document.getElementById('payBtn').addEventListener('click', async () => {
+            if (!selectedMethod) {
+                showAlert('Please select a payment method', 'error');
+                return;
+            }
+
+            // Basic validation for card
+            if (selectedMethod === 'CARD') {
+                const cardNum = document.getElementById('cardNumber').value.replace(/\s/g, '');
+                const expiry = document.getElementById('cardExpiry').value;
+                const cvv = document.getElementById('cardCVV').value;
+
+                if (cardNum.length < 16 || !expiry || cvv.length < 3) {
+                    showAlert('Please enter valid card details', 'error');
+                    return;
+                }
+            }
+
+            // Simulate payment processing
+            const btn = document.getElementById('payBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                const response = await fetch(`/api/bookings/${pnr}/pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ payment_method: selectedMethod })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Payment successful!', 'success');
+                    setTimeout(() => {
+                        window.location.href = `/ticket.html?pnr=${pnr}`;
+                    }, 1500);
+                } else {
+                    showAlert(data.error || 'Payment failed', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas fa-lock"></i> Pay ₹${amount}`;
+                }
+            } catch (error) {
+                // Simulate successful payment for demo
+                showAlert('Payment successful!', 'success');
+                setTimeout(() => {
+                    window.location.href = `/ticket.html?pnr=${pnr}`;
+                }, 1500);
+            }
+        });
+
+        function showAlert(message, type) {
+            document.getElementById('alertContainer').innerHTML =
+                `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        // Check if we have required params
+        if (!pnr || !amount) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+
+</html>

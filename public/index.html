@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="IRCTC Clone - Book train tickets online, check PNR status, and manage your railway bookings">
+    <title>IRCTC Clone - Indian Railway Ticket Booking</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="/">Home</a></li>
+                <li><a href="/pnr-status.html">PNR Status</a></li>
+                <li><a href="/history.html" id="historyLink" style="display: none;">My Bookings</a></li>
+                <li><a href="/login.html" class="btn-login" id="loginBtn">Login</a></li>
+                <li><a href="#" id="logoutBtn" style="display: none;">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h2>Book Train Tickets with Ease</h2>
+            <p>Search, book, and manage your railway journey in just a few clicks</p>
+        </div>
+    </section>
+
+    <!-- Search Box -->
+    <section class="search-container">
+        <div class="search-box">
+            <div class="search-tabs">
+                <button class="search-tab active">Book Ticket</button>
+                <button class="search-tab" onclick="window.location.href='/pnr-status.html'">PNR Status</button>
+                <button class="search-tab" onclick="window.location.href='/history.html'">My Bookings</button>
+            </div>
+            
+            <form class="search-form" id="trainSearchForm">
+                <div class="form-group autocomplete-container" style="position: relative;">
+                    <label for="fromStation">From</label>
+                    <input type="text" id="fromStation" placeholder="Enter source station" autocomplete="off" required>
+                    <input type="hidden" id="fromStationCode">
+                    <div class="autocomplete-results" id="fromResults"></div>
+                </div>
+                
+                <div class="form-group autocomplete-container" style="position: relative;">
+                    <label for="toStation">To</label>
+                    <input type="text" id="toStation" placeholder="Enter destination station" autocomplete="off" required>
+                    <input type="hidden" id="toStationCode">
+                    <div class="autocomplete-results" id="toResults"></div>
+                    <button type="button" class="swap-btn" id="swapBtn" title="Swap stations">⇆</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="journeyDate">Journey Date</label>
+                    <input type="date" id="journeyDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="travelClass">Class</label>
+                    <select id="travelClass">
+                        <option value="">All Classes</option>
+                        <option value="1AC">First AC (1AC)</option>
+                        <option value="2AC">Second AC (2AC)</option>
+                        <option value="3AC">Third AC (3AC)</option>
+                        <option value="SL">Sleeper (SL)</option>
+                        <option value="CC">Chair Car (CC)</option>
+                        <option value="EC">Executive Chair (EC)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn-search">
+                    <i class="fas fa-search"></i> Search Trains
+                </button>
+            </form>
+            
+            <div class="quick-links">
+                <a href="/pnr-status.html" class="quick-link">
+                    <div class="quick-link-icon"><i class="fas fa-ticket"></i></div>
+                    <span>Check PNR Status</span>
+                </a>
+                <a href="/history.html" class="quick-link">
+                    <div class="quick-link-icon"><i class="fas fa-history"></i></div>
+                    <span>Booking History</span>
+                </a>
+                <a href="#" class="quick-link" onclick="showTrainSchedule()">
+                    <div class="quick-link-icon"><i class="fas fa-clock"></i></div>
+                    <span>Train Schedule</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Train Results (Hidden by default) -->
+    <section class="trains-container" id="trainResults" style="display: none;">
+        <h2 style="color: white; margin-bottom: 20px; text-align: center;">Available Trains</h2>
+        <div id="trainsList"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="featuresSection">
+        <div class="section-title">
+            <h2>Why Choose IRCTC Clone?</h2>
+            <p>Experience seamless train booking with our modern platform</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card fade-in">
+                <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                <h3>Instant Booking</h3>
+                <p>Book your train tickets in seconds with our lightning-fast booking system</p>
+            </div>
+            <div class="feature-card fade-in">
+                <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                <h3>Secure Payments</h3>
+                <p>Your transactions are protected with bank-grade security encryption</p>
+            </div>
+            <div class="feature-card fade-in">
+                <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
+                <h3>Easy PNR Check</h3>
+                <p>Check your PNR status anytime, anywhere with our simple lookup</p>
+            </div>
+            <div class="feature-card fade-in">
+                <div class="feature-icon"><i class="fas fa-undo"></i></div>
+                <h3>Quick Cancellation</h3>
+                <p>Cancel your bookings hassle-free and get instant refund updates</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>IRCTC Clone</h4>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">
+                    A DBMS mini project demonstrating railway ticket booking system with SQL database integration.
+                </p>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/pnr-status.html">PNR Status</a></li>
+                    <li><a href="/history.html">Booking History</a></li>
+                    <li><a href="/login.html">Login</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Popular Routes</h4>
+                <ul>
+                    <li><a href="#" onclick="searchRoute('NDLS','BCT')">New Delhi → Mumbai</a></li>
+                    <li><a href="#" onclick="searchRoute('NDLS','HWH')">New Delhi → Kolkata</a></li>
+                    <li><a href="#" onclick="searchRoute('BCT','SBC')">Mumbai → Bengaluru</a></li>
+                    <li><a href="#" onclick="searchRoute('MAS','SBC')">Chennai → Bengaluru</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <ul>
+                    <li><i class="fas fa-envelope"></i> support@irctcclone.com</li>
+                    <li><i class="fas fa-phone"></i> 1800-XXX-XXXX</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 IRCTC Clone - DBMS Mini Project. For Educational Purposes Only.</p>
+        </div>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/trains.js"></script>
+    <script>
+        // Set minimum date to today
+        document.getElementById('journeyDate').min = new Date().toISOString().split('T')[0];
+        document.getElementById('journeyDate').value = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+        // Popular route search
+        function searchRoute(from, to) {
+            document.getElementById('fromStationCode').value = from;
+            document.getElementById('toStationCode').value = to;
+            document.getElementById('fromStation').value = from;
+            document.getElementById('toStation').value = to;
+            document.getElementById('trainSearchForm').dispatchEvent(new Event('submit'));
+        }
+
+        function showTrainSchedule() {
+            alert('Train Schedule feature coming soon!');
+        }
+    </script>
+</body>
+</html>

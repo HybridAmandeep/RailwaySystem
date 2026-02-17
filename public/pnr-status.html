@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNR Status - IRCTC Clone</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="/" class="logo">
+                <div class="logo-icon">🚂</div>
+                <h1>IRCTC <span>Clone</span></h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/history.html">My Bookings</a></li>
+                <li><a href="/login.html" class="btn-login" id="loginBtn">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- PNR Status Check -->
+    <section class="pnr-container">
+        <div class="pnr-box">
+            <h2><i class="fas fa-ticket-alt" style="color: var(--primary-color);"></i> Check PNR Status</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">
+                Enter your 10-digit PNR number to check your booking status
+            </p>
+
+            <div id="alertContainer"></div>
+
+            <div class="pnr-input-group">
+                <input type="text" id="pnrInput" placeholder="Enter PNR Number" maxlength="10"
+                    style="text-transform: uppercase;">
+                <button id="checkBtn"><i class="fas fa-search"></i> Check</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- PNR Result -->
+    <section class="ticket-container" id="resultContainer" style="display: none;">
+        <div class="ticket" id="pnrResult"></div>
+    </section>
+
+    <script src="js/utils.js"></script>
+    <script>
+        // Check URL for PNR
+        const urlPnr = new URLSearchParams(window.location.search).get('pnr');
+        if (urlPnr) {
+            document.getElementById('pnrInput').value = urlPnr;
+            checkPNR();
+        }
+
+        document.getElementById('checkBtn').addEventListener('click', checkPNR);
+        document.getElementById('pnrInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkPNR();
+        });
+
+        async function checkPNR() {
+            const pnr = document.getElementById('pnrInput').value.trim().toUpperCase();
+
+            if (!pnr || pnr.length < 6) {
+                showAlert('Please enter a valid PNR number', 'error');
+                return;
+            }
+
+            document.getElementById('checkBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const response = await fetch(`/api/bookings/pnr/${pnr}`, { credentials: 'include' });
+                const data = await response.json();
+
+                document.getElementById('checkBtn').innerHTML = '<i class="fas fa-search"></i> Check';
+
+                if (response.ok && data.booking) {
+                    showResult(data);
+                } else {
+                    showAlert('PNR not found. Please check the number and try again.', 'error');
+                    document.getElementById('resultContainer').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('checkBtn').innerHTML = '<i class="fas fa-search"></i> Check';
+                showAlert('Error checking PNR. Please try again.', 'error');
+            }
+        }
+
+        function showResult(data) {
+            const { booking, passengers, waitlist } = data;
+            const statusClass = booking.booking_status.toLowerCase();
+
+            document.getElementById('resultContainer').style.display = 'block';
+            document.getElementById('pnrResult').innerHTML = `
+                <div class="ticket-header">
+                    <h2>PNR Status</h2>
+                    <div class="pnr">${booking.pnr}</div>
+                </div>
+                
+                <div class="ticket-body">
+                    <div class="ticket-status">
+                        <span class="status-badge ${statusClass}">
+                            ${booking.booking_status}
+                            ${waitlist ? ` (WL/${waitlist.waitlist_number})` : ''}
+                        </span>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h3 style="color: var(--secondary-color);">${booking.train_name}</h3>
+                        <span style="color: var(--primary-color); font-weight: 600;">(${booking.train_number})</span>
+                    </div>
+                    
+                    <div class="ticket-journey">
+                        <div class="ticket-station">
+                            <div class="station">${booking.from_code}</div>
+                            <div class="date">${booking.from_station}</div>
+                        </div>
+                        <div class="ticket-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="ticket-station">
+                            <div class="station">${booking.to_code}</div>
+                            <div class="date">${booking.to_station}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                        <strong>Journey Date:</strong> ${formatDate(booking.journey_date)}
+                        <span style="margin-left: 20px;"><strong>Class:</strong> ${booking.coach_type}</span>
+                    </div>
+                    
+                    <div class="passenger-list">
+                        <h4><i class="fas fa-users"></i> Passenger Details</h4>
+                        <div style="overflow-x: auto;">
+                            <div class="passenger-item" style="background: var(--secondary-color); color: white; font-weight: 600;">
+                                <span style="text-align: left;">Name</span>
+                                <span>Age</span>
+                                <span>Gender</span>
+                                <span>Seat/Berth</span>
+                                <span>Status</span>
+                            </div>
+                            ${passengers.map(p => `
+                                <div class="passenger-item">
+                                    <span style="text-align: left;">${p.passenger_name}</span>
+                                    <span>${p.age}</span>
+                                    <span>${p.gender}</span>
+                                    <span>${p.seat_number || 'TBD'} ${p.coach_number || ''}</span>
+                                    <span style="color: ${getStatusColor(p.passenger_status)};">
+                                        ${p.passenger_status}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; text-align: center;">
+                        <a href="/ticket.html?pnr=${booking.pnr}" class="btn-search" style="display: inline-flex;">
+                            <i class="fas fa-ticket-alt"></i> View Full Ticket
+                        </a>
+                    </div>
+                </div>
+            `;
+
+            // Scroll to result
+            document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function getStatusColor(status) {
+            switch (status) {
+                case 'CONFIRMED': return 'var(--success)';
+                case 'WAITLIST': return 'var(--warning)';
+                case 'CANCELLED': return 'var(--danger)';
+                default: return 'var(--text-muted)';
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-IN', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function showAlert(message, type) {
+            document.getElementById('alertContainer').innerHTML =
+                `<div class="alert alert-${type}">${message}</div>`;
+        }
+    </script>
+</body>
+
+</html>

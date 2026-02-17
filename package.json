@@ -1,0 +1,27 @@
+{
+    "name": "irctc-clone",
+    "version": "1.0.0",
+    "description": "IRCTC Clone - Railway Ticket Booking System (DBMS Mini Project)",
+    "main": "server/index.js",
+    "scripts": {
+        "start": "node server/index.js",
+        "dev": "node server/index.js",
+        "init-db": "node server/init-db.js"
+    },
+    "keywords": [
+        "irctc",
+        "railway",
+        "booking",
+        "dbms",
+        "sqlite"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "bcryptjs": "^2.4.3",
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "express-session": "^1.17.3",
+        "sql.js": "^1.10.3"
+    }
+}
